@@ -27,7 +27,6 @@ blur = cv2.GaussianBlur(gray, (7, 7), 0)
 
 # =========================
 # 4. 二值化
-# 瞳孔較黑，使用反向二值化
 # =========================
 _, binary = cv2.threshold(
     blur,
@@ -37,60 +36,37 @@ _, binary = cv2.threshold(
 )
 
 # =========================
-# 5. Sobel
+# 5. Contour
 # =========================
-sobel_x = cv2.Sobel(binary, cv2.CV_64F, 1, 0, ksize=3)
-sobel_y = cv2.Sobel(binary, cv2.CV_64F, 0, 1, ksize=3)
-
-sobel = cv2.magnitude(sobel_x, sobel_y)
-sobel = np.uint8(np.clip(sobel, 0, 255))
-
-# =========================
-# 6. Canny
-# =========================
-canny = cv2.Canny(sobel, 50, 150)
-
-# =========================
-# 7. 霍夫圓轉換
-# =========================
-circles = cv2.HoughCircles(
-    canny,
-    cv2.HOUGH_GRADIENT,
-    dp=1.2,
-    minDist=30,
-    param1=50,
-    param2=15,
-    minRadius=5,
-    maxRadius=30
+contours, _ = cv2.findContours(
+    binary,
+    cv2.RETR_EXTERNAL,
+    cv2.CHAIN_APPROX_SIMPLE
 )
 
+# 畫 contour 結果
+contour_result = img.copy()
+
+for contour in contours:
+    area = cv2.contourArea(contour)
+    if area > 30:
+        cv2.drawContours(contour_result, [contour], -1, (255, 0, 0), 2)
+
+        M = cv2.moments(contour)
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            cv2.circle(contour_result, (cx, cy), 3, (0, 0, 255), -1)
+            print(f"Contour 中心=({cx}, {cy}), 面積={area:.2f}")
+
+
+
 # =========================
-# 8. 畫圓
+# 8. 顯示結果
 # =========================
-if circles is not None:
-    circles = np.uint16(np.around(circles))
-
-    for c in circles[0, :]:
-        x, y, r = c
-
-        # 畫外圓
-        cv2.circle(result, (x, y), r, (0, 255, 0), 2)
-
-        # 畫圓心
-        cv2.circle(result, (x, y), 2, (0, 0, 255), 3)
-
-        print(f"圓心=({x}, {y}), 半徑={r}")
-
-# =========================
-# 9. 顯示結果
-# =========================
-cv2.imshow("Original", img)
-cv2.imshow("Gray", gray)
-cv2.imshow("Gaussian Blur", blur)
+cv2.imshow("Blur", blur)
 cv2.imshow("Binary", binary)
-cv2.imshow("Sobel", sobel)
-cv2.imshow("Canny", canny)
-cv2.imshow("Hough Result", result)
+cv2.imshow("Contour Result", contour_result)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
